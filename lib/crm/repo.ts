@@ -168,3 +168,22 @@ export async function registrarInteracao(i: { empresa_id?: number; contato_id?: 
 export async function historicoNegocio(negocioId: number) {
   return query(`SELECT por, direcao, canal, resumo, criado_em FROM interacoes WHERE negocio_id=$1 ORDER BY criado_em`, [negocioId]);
 }
+
+// ---------------- Agente comercial: WhatsApp ----------------
+/** Acha o negócio ABERTO mais recente de um contato — evita criar oportunidade duplicada a cada mensagem. */
+export async function negocioAbertoDoContato(contatoId: number) {
+  return one<{ id: number; titulo: string; etapa_id: number; atendimento_humano: boolean }>(
+    `SELECT id, titulo, etapa_id, COALESCE(atendimento_humano, FALSE) AS atendimento_humano
+     FROM negocios WHERE contato_id = $1 AND status = 'aberto'
+     ORDER BY criado_em DESC LIMIT 1`, [contatoId]);
+}
+
+/** Idempotência do WhatsApp: guarda a mensagem recebida. Retorna true se é NOVA (ainda não processada). */
+export async function registrarMensagemWa(m: { instancia?: string; remoteJid?: string; messageId?: string; fromMe?: boolean; pushName?: string; texto?: string }): Promise<boolean> {
+  if (!m.messageId) return true; // sem id não dá para deduplicar; segue o fluxo
+  const row = await one<{ id: number }>(
+    `INSERT INTO wa_mensagens (instancia, remote_jid, message_id, from_me, push_name, texto)
+     VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (message_id) DO NOTHING RETURNING id`,
+    [m.instancia ?? null, m.remoteJid ?? null, m.messageId, m.fromMe ?? false, m.pushName ?? null, m.texto ?? null]);
+  return !!row; // inseriu agora = mensagem nova
+}

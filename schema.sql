@@ -201,3 +201,33 @@ INSERT INTO funil_etapas (nome, ordem, ganho, perdido) VALUES
   ('Ganho',            7, TRUE,  FALSE),
   ('Perdido',          8, FALSE, TRUE)
 ON CONFLICT (nome) DO NOTHING;
+
+-- ---------------------------------------------------------------------
+-- Mensagens de WhatsApp recebidas (idempotência do webhook + auditoria). Doc §9.
+-- Guarda só o necessário para não processar a mesma mensagem duas vezes.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS wa_mensagens (
+  id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  instancia    TEXT,
+  remote_jid   TEXT,
+  message_id   TEXT UNIQUE,                 -- id da mensagem no WhatsApp; evita processar 2x
+  from_me      BOOLEAN NOT NULL DEFAULT FALSE,
+  push_name    TEXT,
+  texto        TEXT,
+  recebido_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_wa_mensagens_jid ON wa_mensagens (remote_jid, recebido_em);
+
+-- Marca que um negócio está sendo atendido por humano (a IA para de responder). Doc §4.
+ALTER TABLE negocios ADD COLUMN IF NOT EXISTS atendimento_humano BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ---------------------------------------------------------------------
+-- Autonomia (Etapa 1): registra alertas já enviados para não repetir.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS autonomia_alertas (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  chave      TEXT NOT NULL,
+  tipo       TEXT,
+  criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_autonomia_alertas_chave ON autonomia_alertas (chave, criado_em);
