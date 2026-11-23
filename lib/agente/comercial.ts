@@ -4,7 +4,7 @@
 
 import {
   acharPorWhatsapp, upsertEmpresa, upsertContato, criarNegocio, registrarInteracao,
-  negocioAbertoDoContato, registrarMensagemWa, historicoNegocio,
+  negocioAbertoDoContato, registrarMensagemWa, historicoNegocio, definirAtendimentoHumano,
 } from '@/lib/crm/repo';
 import { parseEventoWa, type WaWebhookBody, type EventoWa } from './webhook';
 import { enviarTexto, evoConfigured } from './evolution';
@@ -28,12 +28,31 @@ function nomeExibicao(evt: EventoWa): string {
 export async function processarWebhookComercial(body: WaWebhookBody): Promise<ResultadoWa> {
   const evt = parseEventoWa(body);
   if (!evt) return { ok: true, acao: 'ignorado', motivo: 'sem mensagem válida' };
-  if (evt.fromMe) return { ok: true, acao: 'ignorado', motivo: 'mensagem enviada por nós' };
   if (evt.ehGrupo) return { ok: true, acao: 'ignorado', motivo: 'mensagem de grupo' };
   if (!evt.numero) return { ok: true, acao: 'ignorado', motivo: 'sem número' };
+
+  // Mensagem SAINDO pelo WhatsApp comercial (fromMe): ou é eco da própria ZAY (já registramos o id ao enviar),
+  // ou é um VENDEDOR respondendo na mão. Se for o vendedor, a ZAY se cala nesta conversa (handoff).
+  if (evt.fromMe) {
+    const registrada = await registrarMensagemWa({ instancia: evt.instancia, remoteJid: evt.remoteJid, messageId: evt.messageId, fromMe: true, pushName: evt.pushName, texto: evt.texto });
+    if (!registrada) return { ok: true, acao: 'ignorado', motivo: 'eco da própria ZAY' };
+    // Mensagem nossa que NÃO foi a ZAY que mandou → um vendedor assumiu.
+    const alvo = (await acharPorWhatsapp(evt.numero)) as { contato_id: number } | null;
+    if (alvo?.contato_id) {
+      const aberto = await negocioAbertoDoContato(alvo.contato_id);
+      if (aberto && !aberto.atendimento_humano) {
+        await definirAtendimentoHumano(aberto.id, true);
+        const resumoH = evt.texto ? (evt.texto.length > MAX_RESUMO ? evt.texto.slice(0, MAX_RESUMO) + '…' : evt.texto) : '(mensagem do vendedor)';
+        await registrarInteracao({ contato_id: alvo.contato_id, negocio_id: aberto.id, canal: 'whatsapp', direcao: 'enviada', por: 'humano', resumo: resumoH });
+        return { ok: true, acao: 'interacao', negocioId: aberto.id, motivo: 'vendedor assumiu — ZAY pausada nesta conversa' };
+      }
+    }
+    return { ok: true, acao: 'ignorado', motivo: 'mensagem nossa (sem negócio aberto)' };
+  }
+
   if (!evt.texto) return { ok: true, acao: 'ignorado', motivo: 'sem texto (mídia sem legenda)' };
 
-  // Idempotência: se já processamos essa mensagem (reenvio do webhook), não faz de novo.
+  // Idempotência: se já processamos essa mensagem recebida (reenvio do webhook), não faz de novo.
   const nova = await registrarMensagemWa({
     instancia: evt.instancia, remoteJid: evt.remoteJid, messageId: evt.messageId,
     fromMe: evt.fromMe, pushName: evt.pushName, texto: evt.texto,
@@ -89,7 +108,11 @@ export async function processarWebhookComercial(body: WaWebhookBody): Promise<Re
       const hist = (await historicoNegocio(negocioId)) as HistItem[];
       const resposta = await gerarRespostaComercial({ nome, mensagem: evt.texto, historico: hist });
       if (resposta) {
-        await enviarTexto(evt.numero, resposta);
+        const env = await enviarTexto(evt.numero, resposta);
+        // Registra o id da mensagem que a ZAY enviou, pra o "eco" dela no webhook não ser confundido com um vendedor.
+        if (env.messageId) {
+          await registrarMensagemWa({ instancia: evt.instancia, remoteJid: evt.remoteJid, messageId: env.messageId, fromMe: true, texto: resposta }).catch(() => {});
+        }
         await registrarInteracao({ empresa_id: empresaId || undefined, contato_id: contatoId, negocio_id: negocioId, canal: 'whatsapp', direcao: 'enviada', por: 'ia', resumo: resposta });
         respondido = true;
       }

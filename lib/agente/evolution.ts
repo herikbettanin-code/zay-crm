@@ -33,9 +33,11 @@ async function evo(method: 'GET' | 'POST', pathname: string, body?: unknown): Pr
   }
 }
 
-/** Envia uma mensagem de texto pelo WhatsApp comercial. (Usado a partir da Etapa 2b.) */
-export async function enviarTexto(numero: string, texto: string): Promise<{ status: number; data: unknown }> {
+/** Envia uma mensagem de texto pelo WhatsApp comercial. Devolve o ID da mensagem (p/ não confundir o eco com um vendedor). */
+export async function enviarTexto(numero: string, texto: string): Promise<{ status: number; messageId?: string }> {
   const { instance } = evoConfig();
   const n = (numero ?? '').replace(/\D/g, '');
-  return evo('POST', `/message/sendText/${instance}`, { number: n, text: texto });
+  const r = await evo('POST', `/message/sendText/${instance}`, { number: n, text: texto });
+  const data = r.data as { key?: { id?: string } } | null;
+  return { status: r.status, messageId: data?.key?.id };
 }

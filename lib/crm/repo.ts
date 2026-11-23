@@ -178,6 +178,11 @@ export async function negocioAbertoDoContato(contatoId: number) {
      ORDER BY criado_em DESC LIMIT 1`, [contatoId]);
 }
 
+/** Liga/desliga o "atendimento humano" de um negócio. Ligado = a ZAY NÃO responde aquela conversa. */
+export async function definirAtendimentoHumano(negocioId: number, valor = true): Promise<void> {
+  await query(`UPDATE negocios SET atendimento_humano = $2 WHERE id = $1`, [negocioId, valor]);
+}
+
 /** Idempotência do WhatsApp: guarda a mensagem recebida. Retorna true se é NOVA (ainda não processada). */
 export async function registrarMensagemWa(m: { instancia?: string; remoteJid?: string; messageId?: string; fromMe?: boolean; pushName?: string; texto?: string }): Promise<boolean> {
   if (!m.messageId) return true; // sem id não dá para deduplicar; segue o fluxo
