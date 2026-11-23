@@ -46,3 +46,17 @@ th { color: var(--steel); font-weight: 600; font-size: 12px; text-transform: upp
 .vazio { color: var(--steel); font-size: 14px; }
 .erro { color: #b42318; background: #fff4f3; border: 1px solid #f2b8b2; border-radius: 10px; padding: 14px; }
 .atraso { color: #b42318; }
+
+/* Painel de Anúncios (Meta Ads) */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 4px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.card .rotulo { font-size: 12px; color: var(--steel); text-transform: uppercase; letter-spacing: 0.04em; }
+.card .num { font-size: 26px; font-weight: 700; margin-top: 6px; }
+.card .num.ok { color: var(--accent); }
+.tabs { display: flex; gap: 8px; margin: 2px 0 18px; }
+.tabs a { font-size: 13px; color: var(--steel); text-decoration: none; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; }
+.tabs a.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+th.dir, td.dir { text-align: right; }
+.ruim { color: #b42318; font-weight: 600; }
+.muted { color: var(--steel); }
+.nota { margin-top: 10px; font-size: 12px; }
