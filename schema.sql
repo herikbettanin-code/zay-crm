@@ -231,3 +231,52 @@ CREATE TABLE IF NOT EXISTS autonomia_alertas (
   criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_autonomia_alertas_chave ON autonomia_alertas (chave, criado_em);
+
+-- ---------------------------------------------------------------------
+-- Executor técnico (Fase 1/2): fila de tarefas acionadas SÓ pelo canal ADMIN.
+-- Isolado do comercial. O worker local pega as tarefas; limites e aprovação ficam aqui.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS exec_tarefas (
+  id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  objetivo        TEXT NOT NULL,                     -- o que foi pedido (dado, nunca ordem p/ outro agente)
+  tipo            TEXT NOT NULL DEFAULT 'auto',       -- 'simples' (script) | 'complexa' (claude -p) | 'auto'
+  projeto         TEXT,                               -- diretório/projeto autorizado alvo
+  status          TEXT NOT NULL DEFAULT 'pendente',   -- pendente|rodando|aguardando_aprovacao|concluida|erro|cancelada|expirada
+  prioridade      SMALLINT NOT NULL DEFAULT 5,
+  origem          TEXT NOT NULL DEFAULT 'admin',      -- SEMPRE admin; comercial/externo nunca entra aqui
+  idempotencia    TEXT UNIQUE,                        -- evita duplicar a mesma solicitação
+  tentativas      SMALLINT NOT NULL DEFAULT 0,
+  max_tentativas  SMALLINT NOT NULL DEFAULT 2,
+  timeout_seg     INTEGER NOT NULL DEFAULT 600,
+  resultado       TEXT,
+  erro            TEXT,
+  criado_por      TEXT,
+  criado_em       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  iniciado_em     TIMESTAMPTZ,
+  concluido_em    TIMESTAMPTZ,
+  heartbeat_em    TIMESTAMPTZ                          -- worker atualiza enquanto roda (p/ retomar sem duplicar)
+);
+CREATE INDEX IF NOT EXISTS idx_exec_tarefas_status ON exec_tarefas (status, prioridade, criado_em);
+
+-- Aprovação vinculada a UMA tarefa, com token e validade (não um "SIM" genérico).
+CREATE TABLE IF NOT EXISTS exec_aprovacoes (
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tarefa_id     BIGINT NOT NULL REFERENCES exec_tarefas(id) ON DELETE CASCADE,
+  acao          TEXT NOT NULL,                        -- descrição da ação crítica que precisa de ok
+  token         TEXT NOT NULL UNIQUE,                 -- código único que o dono confirma
+  status        TEXT NOT NULL DEFAULT 'pendente',     -- pendente|aprovada|negada|expirada
+  valido_ate    TIMESTAMPTZ NOT NULL,
+  criado_em     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  respondido_em TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_exec_aprovacoes_tarefa ON exec_aprovacoes (tarefa_id, status);
+
+-- Log de progresso/resultado/erro por tarefa (auditoria).
+CREATE TABLE IF NOT EXISTS exec_logs (
+  id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tarefa_id  BIGINT REFERENCES exec_tarefas(id) ON DELETE CASCADE,
+  nivel      TEXT NOT NULL DEFAULT 'info',            -- info|aviso|erro
+  mensagem   TEXT NOT NULL,
+  criado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_exec_logs_tarefa ON exec_logs (tarefa_id, criado_em);
