@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { autorizadoWorker } from '@/lib/executor/auth';
-import { pegarProxima, logar, concluir, pedirAprovacao, heartbeat } from '@/lib/executor/repo';
+import { pegarProxima, logar, concluir, pedirAprovacao, heartbeat, ultimaAprovacao } from '@/lib/executor/repo';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +9,12 @@ interface Corpo { tarefa_id?: number; mensagem?: string; nivel?: 'info' | 'aviso
 // GET = o worker pega a próxima tarefa pendente (poll barato em SQL; ocioso não gasta IA).
 export async function GET(req: NextRequest) {
   if (!autorizadoWorker(req)) return NextResponse.json({ ok: false, erro: 'não autorizado' }, { status: 401 });
+  const sp = req.nextUrl.searchParams;
+  if (sp.get('acao') === 'aprovacao-status') {
+    const id = Number(sp.get('tarefa_id'));
+    if (!id) return NextResponse.json({ ok: false, erro: 'tarefa_id obrigatório' }, { status: 400 });
+    return NextResponse.json({ ok: true, aprovacao: await ultimaAprovacao(id) });
+  }
   const t = await pegarProxima();
   return NextResponse.json({ ok: true, tarefa: t });
 }
