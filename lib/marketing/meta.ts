@@ -26,7 +26,7 @@ async function get<T>(pathname: string, params: Record<string, string>): Promise
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(`${API}/${versao}/${pathname}?${qs}`, { signal: ctl.signal });
+    const res = await fetch(`${API}/${versao}/${pathname}?${qs}`, { signal: ctl.signal, cache: 'no-store' });
     const data = (await res.json().catch(() => null)) as (T & GraphError) | null;
     if (!res.ok || !data) throw new Error(data?.error?.message || `HTTP ${res.status}`);
     return data as T;

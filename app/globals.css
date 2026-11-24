@@ -60,3 +60,16 @@ th.dir, td.dir { text-align: right; }
 .ruim { color: #b42318; font-weight: 600; }
 .muted { color: var(--steel); }
 .nota { margin-top: 10px; font-size: 12px; }
+
+/* Painel em tempo quase real — indicadores */
+.painel-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.status-linha { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.conexao { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.conexao.on { background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.15); }
+.conexao.off { background: #d97706; box-shadow: 0 0 0 3px rgba(217,119,6,.15); }
+.btn-atualizar { font-size: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--steel); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.btn-atualizar:hover { color: var(--ink); border-color: var(--silver); }
+.btn-atualizar:disabled { opacity: .6; cursor: default; }
+.aviso-stale { color: #b45309; background: #fffaf0; border: 1px solid #f5d9a8; border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+.tabs a { cursor: pointer; }
+.card .num { transition: color .2s ease; }
