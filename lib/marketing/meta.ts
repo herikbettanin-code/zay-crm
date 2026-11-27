@@ -54,6 +54,15 @@ export async function resumoConta(): Promise<ResumoConta> {
   };
 }
 
+/** Diagnóstico: devolve os campos financeiros crus da conta, pra comparar com o Gerenciador.
+ *  SÓ LEITURA. Serve pra descobrir qual campo corresponde ao "saldo disponível" da conta. */
+export async function contaFinanceiraBruta(): Promise<Record<string, unknown>> {
+  const { conta } = cfg();
+  return await get<Record<string, unknown>>(conta, {
+    fields: 'name,currency,balance,amount_spent,spend_cap,is_prepay_account,funding_source,funding_source_details,account_status',
+  });
+}
+
 export interface CampanhaInsight { nome: string; gasto: number; impressoes: number; leads: number; cpl: number | null }
 interface AcaoResp { action_type?: string; value?: string }
 interface InsightLinha { campaign_name?: string; spend?: string; impressions?: string; actions?: AcaoResp[] }
