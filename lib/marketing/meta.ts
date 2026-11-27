@@ -54,13 +54,22 @@ export async function resumoConta(): Promise<ResumoConta> {
   };
 }
 
-/** Diagnóstico: devolve os campos financeiros crus da conta, pra comparar com o Gerenciador.
- *  SÓ LEITURA. Serve pra descobrir qual campo corresponde ao "saldo disponível" da conta. */
-export async function contaFinanceiraBruta(): Promise<Record<string, unknown>> {
+/** Diagnóstico: testa cada campo SEPARADAMENTE e diz se a Meta libera (valor) ou bloqueia (erro).
+ *  SÓ LEITURA. Serve pra descobrir qual campo corresponde ao "saldo disponível" e o que o token alcança. */
+export async function probarCamposConta(campos: string[]): Promise<Record<string, unknown>> {
   const { conta } = cfg();
-  return await get<Record<string, unknown>>(conta, {
-    fields: 'name,currency,balance,amount_spent,spend_cap,is_prepay_account,funding_source,funding_source_details,account_status',
-  });
+  const saida: Record<string, unknown> = {};
+  await Promise.all(
+    campos.map(async (campo) => {
+      try {
+        const d = await get<Record<string, unknown>>(conta, { fields: campo });
+        saida[campo] = d[campo] ?? null;
+      } catch (e) {
+        saida[campo] = { bloqueado: e instanceof Error ? e.message : 'falha' };
+      }
+    }),
+  );
+  return saida;
 }
 
 export interface CampanhaInsight { nome: string; gasto: number; impressoes: number; leads: number; cpl: number | null }
