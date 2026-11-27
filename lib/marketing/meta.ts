@@ -38,18 +38,25 @@ async function get<T>(pathname: string, params: Record<string, string>): Promise
 const emReais = (v: unknown): number | null => (v == null || v === '' ? null : Number(v) / 100);
 
 export interface ResumoConta { nome: string; moeda: string; saldo: number | null; gasto: number; limite: number | null; status: number | null }
-interface ContaResp { name?: string; currency?: string; balance?: string; amount_spent?: string; spend_cap?: string; account_status?: number }
+interface ContaResp { name?: string; currency?: string; balance?: string; amount_spent?: string; spend_cap?: string; account_status?: number; is_prepay_account?: boolean }
 
 /** Resumo da conta de anúncios: saldo, gasto e limite (valores já convertidos para a moeda da conta). */
 export async function resumoConta(): Promise<ResumoConta> {
   const { conta } = cfg();
-  const d = await get<ContaResp>(conta, { fields: 'name,currency,balance,amount_spent,spend_cap,account_status' });
+  const d = await get<ContaResp>(conta, { fields: 'name,currency,balance,amount_spent,spend_cap,account_status,is_prepay_account' });
+  const gasto = emReais(d.amount_spent) ?? 0;
+  const limite = emReais(d.spend_cap);     // limite de gasto da conta (0/ausente = sem limite)
+  // Conta pré-paga (com saldo): a Meta expõe o saldo disponível como (limite de gasto − total gasto).
+  // O campo "balance" é "valor devido/em aberto" e NÃO corresponde ao saldo do Gerenciador — por isso não o usamos.
+  const saldo = d.is_prepay_account && limite != null
+    ? Math.max(0, limite - gasto)
+    : emReais(d.balance);                  // contas não pré-pagas: cai no campo balance
   return {
     nome: d.name ?? '',
     moeda: d.currency ?? 'BRL',
-    saldo: emReais(d.balance),              // conta pré-paga: saldo disponível
-    gasto: emReais(d.amount_spent) ?? 0,
-    limite: emReais(d.spend_cap),           // limite de gasto da conta (0/ausente = sem limite)
+    saldo,
+    gasto,
+    limite,
     status: d.account_status ?? null,
   };
 }
