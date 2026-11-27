@@ -90,7 +90,7 @@ export default function Painel({ k }: { k: string }) {
       </div>
 
       <div className="cards">
-        <div className="card"><div className="rotulo">Saldo disponível</div><div className="num">{brl(moeda, d?.saldo)}</div></div>
+        <div className="card" title="Saldo estimado = limite de gasto − total gasto. O valor exato fica nos dados de pagamento, que a Meta não libera para este acesso (pode variar alguns reais do Gerenciador)."><div className="rotulo">Saldo estimado</div><div className="num">{brl(moeda, d?.saldo)}</div></div>
         <div className="card"><div className="rotulo">Gasto ({periodo} dias)</div><div className="num">{brl(moeda, d?.gasto)}</div></div>
         <div className="card"><div className="rotulo">Leads ({periodo} dias)</div><div className="num ok">{d?.leads ?? '—'}</div></div>
         <div className="card"><div className="rotulo">CPL médio</div><div className="num">{d?.cpl != null ? brl(moeda, d.cpl) : '—'}</div></div>
